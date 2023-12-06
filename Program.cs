@@ -81,6 +81,102 @@ app.MapGet("/servicetickets/{id}", (int id) =>
     });
 });
 
+app.MapPost("/servicetickets", (ServiceTicket serviceTicket) =>
+{
+
+    // Get the customer data to check that the customerid for the service ticket is valid
+    Customer customer = customers.FirstOrDefault(c => c.Id == serviceTicket.CustomerId);
+
+    // if the client did not provide a valid customer id, this is a bad request
+    if (customer == null)
+    {
+        return Results.BadRequest();
+    }
+
+    // creates a new id (SQL will do this for us like JSON Server did!)
+    serviceTicket.Id = serviceTickets.Max(st => st.Id) + 1;
+    serviceTickets.Add(serviceTicket);
+
+    // Created returns a 201 status code with a link in the headers to where the new resource can be accessed
+    return Results.Created($"/servicetickets/{serviceTicket.Id}", new ServiceTicketDTO
+    {
+        Id = serviceTicket.Id,
+        CustomerId = serviceTicket.CustomerId,
+        Customer = new CustomerDTO
+        {
+            Id = customer.Id,
+            Name = customer.Name,
+            Address = customer.Address
+        },
+        Description = serviceTicket.Description,
+        Emergency = serviceTicket.Emergency
+    });
+
+});
+
+app.MapPost("/servicetickets/{id}/complete", (int id) =>
+{
+    // Get the service ticket from the database
+    ServiceTicket ticketToComplete = serviceTickets.FirstOrDefault(st => st.Id == id);
+
+    // Check if the service ticket exists
+    if (ticketToComplete == null)
+    {
+        return Results.NotFound();
+    }
+
+    // Set the service ticket's DateCompleted to today
+    ticketToComplete.DateCompleted = DateTime.Today;
+
+    // Return a response indicating success
+    return Results.Ok();
+});
+
+
+
+app.MapPut("/servicetickets/{id}", (int id, ServiceTicket serviceTicket) =>
+{
+    ServiceTicket ticketToUpdate = serviceTickets.FirstOrDefault(st => st.Id == id);
+
+    if (ticketToUpdate == null)
+    {
+        return Results.NotFound();
+    }
+    if (id != serviceTicket.Id)
+    {
+        return Results.BadRequest();
+    }
+
+    ticketToUpdate.CustomerId = serviceTicket.CustomerId;
+    ticketToUpdate.EmployeeId = serviceTicket.EmployeeId;
+    ticketToUpdate.Description = serviceTicket.Description;
+    ticketToUpdate.Emergency = serviceTicket.Emergency;
+    ticketToUpdate.DateCompleted = serviceTicket.DateCompleted;
+
+    return Results.NoContent();
+});
+
+
+
+app.MapDelete("/servicetickets/{id}", (int id) =>
+{
+    // Find the service ticket by id
+    ServiceTicket serviceTicketToDelete = serviceTickets.FirstOrDefault(st => st.Id == id);
+
+    // Check if the service ticket exists
+    if (serviceTicketToDelete == null)
+    {
+        return Results.NotFound();
+    }
+
+    // Remove the service ticket from the database
+    serviceTickets.Remove(serviceTicketToDelete);
+
+    // Return a 204 response (NoContent)
+    return Results.NoContent();
+});
+
+
 app.MapGet("/employees", () =>
 {
     return employees.Select(e => new EmployeeDTO
